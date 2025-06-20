@@ -27,6 +27,7 @@ setup(
         "openimis-be-core",
         "reportbro-lib",
         "reportbro-fpdf",
+        "openpyxl"
     ],
     classifiers=[
         "Environment :: Web Environment",
