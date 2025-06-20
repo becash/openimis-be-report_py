@@ -171,50 +171,28 @@ def download_worker_vouchers_xlsx(request):
     # Get query parameters
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
+    insuree__chf_id = request.GET.get('insuree__chf_id')
+    policyholder_code = request.GET.get('policyholder_code')
 
-    if not date_from or not date_to:
-        return HttpResponseBadRequest('Missing required parameters: date_from,date_to')
+    if not date_from or not date_to or not policyholder_code:
+        return HttpResponseBadRequest('Missing required parameters: date_from, date_to, policyholder_code')
 
     try:
         if date_from:
             date_from = datetime.datetime.strptime(date_from, '%Y-%m-%d')
         if date_to:
             date_to = datetime.datetime.strptime(date_to, '%Y-%m-%d')
+            date_to = datetime.datetime.combine(date_to, datetime.time.max)
+
     except ValueError:
         return HttpResponse('Invalid date format. Use YYYY-MM-DD', status=400)
 
     # Build query
     queryset = WorkerVoucher.objects.all()
 
-    queryset = queryset.filter(policyholder_id=user.id)
-
-    # Apply filters
-    # if status:
-    #     if status not in [choice[0] for choice in WorkerVoucher.Status.choices]:
-    #         return HttpResponse('Invalid status', status=400)
-    #     queryset = queryset.filter(status=status)
-
-    if date_from:
-        queryset = queryset.filter(assigned_date__gte=date_from)
-    if date_to:
-        queryset = queryset.filter(assigned_date__lte=date_to)
-
-
-    # eu = PolicyHolder.objects.filter(economic_unit_user_filter(info.context.user), code=economic_unit_code).first()
-    # if not eu:
-    #     raise AttributeError(_("workers.validation.economic_unit_not_exist"))
-    #
-    # query = Insuree.get_queryset(None, info.context.user).distinct('id').filter(
-    #     worker_user_filter(info.context.user, economic_unit_code=economic_unit_code),
-    #     workervoucher__is_deleted=False,
-    #     workervoucher__policyholder__is_deleted=False,
-    #     workervoucher__policyholder__code=economic_unit_code,
-    # )
-
-    # Order by assigned date
-    queryset = queryset.order_by('assigned_date')
-    # Build query
-    queryset = WorkerVoucher.objects.all()
+    queryset = queryset.filter(policyholder__code=policyholder_code)
+    if insuree__chf_id:
+        queryset = queryset.filter(insuree__chf_id__iexact=insuree__chf_id)
 
     # Apply filters
     queryset = queryset.filter(status=WorkerVoucher.Status.ASSIGNED)
@@ -223,9 +201,6 @@ def download_worker_vouchers_xlsx(request):
         queryset = queryset.filter(assigned_date__gte=date_from)
     if date_to:
         queryset = queryset.filter(assigned_date__lte=date_to)
-
-    # Get user-specific filters
-    # queryset = WorkerVoucher.get_queryset(queryset, request.user)
 
     # Order by assigned date
     queryset = queryset.order_by('assigned_date')
@@ -236,7 +211,7 @@ def download_worker_vouchers_xlsx(request):
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = f'attachment; filename="Report {date_from} - {date_to}.xlsx"'
+    response['Content-Disposition'] = f'attachment; filename="Report {date_from.date()} - {date_to.date()}.xlsx"'
 
     # Save to response
     wb.save(response)
